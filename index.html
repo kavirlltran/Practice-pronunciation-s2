@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pronunciation Practice</title>
   <style>
-    /* Basic Reset & Styling */
+    /* Reset & Phong cách chung */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: Arial, sans-serif;
@@ -18,12 +18,12 @@
     .container {
       max-width: 800px;
       margin: auto;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(0, 0, 0, 0.65);
       padding: 20px;
       border-radius: 8px;
     }
     h1 { text-align: center; margin-bottom: 20px; font-weight: bold; }
-    /* Phần nội dung chính (5 dòng) luôn hiển thị */
+    /* Khối hiển thị nội dung cần luyện */
     #content-list { margin-bottom: 20px; }
     .line {
       padding: 10px;
@@ -35,9 +35,11 @@
     }
     .line:hover { background: rgba(255,255,255,0.1); }
     .line.selected { background: rgba(255,255,255,0.2); border-color: #FFD700; }
-    .word { font-weight: bold; padding: 0 3px; }
-    .word.stressed { border-bottom: 2px dashed #FFD700; }
-    .word.error { color: #FF6347; }
+    .word {
+      font-weight: bold;
+      padding: 0 3px;
+    }
+    .word.error { color: #FF6347; } /* đánh dấu lỗi */
     /* Nút điều khiển */
     #controls { text-align: center; margin-bottom: 20px; }
     button {
@@ -55,7 +57,7 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     button:hover:not(:disabled) { background: #FFC107; }
-    /* Khu vực Feedback (đánh giá) */
+    /* Khu vực Feedback */
     #result {
       font-size: 1.4rem;
       text-align: center;
@@ -64,11 +66,9 @@
       border-radius: 5px;
       margin-top: 20px;
     }
-    /* Định dạng feedback theo 2 màu:
-       • Prefix (ví dụ: "Issue: Pronounce") với màu cam đỏ.
-       • Danh sách từ lỗi với màu vàng. */
-    .msg-prefix { color: #FF6347; }
-    .error-word { color: #FFD700; }
+    .msg-prefix { color: #FF6347; }  /* màu cam đỏ */
+    .error-word { color: #FFD700; }   /* màu vàng */
+    .success { color: #00FF00; font-weight: bold; }
     @media (max-width: 600px) {
       h1 { font-size: 1.5rem; }
       button { width: 100%; margin-bottom: 10px; }
@@ -80,19 +80,20 @@
   <div class="container">
     <h1>Pronunciation Practice</h1>
     <p>Please select a line before recording:</p>
-    <!-- Phần nội dung chính luôn hiển thị -->
+    <!-- Nội dung chính: 5 đoạn văn luôn hiển thị -->
     <div id="content-list"></div>
     <div id="controls">
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop Recording</button>
     </div>
-    <!-- Khu vực Feedback (đánh giá) - chỉ xuất hiện khi có lỗi -->
+    <!-- Khu vực Feedback -->
     <div id="result"></div>
   </div>
 
   <script>
     /***********************************************************************
-     * SOURCE DATA: 5 lines (a leading ‘ indicates a stressed word, but here we ignore stress)
+     * SOURCE DATA: 5 passages  
+     * (A leading ‘ in a word indicates emphasis in the source but we ignore it for evaluation.)
      ***********************************************************************/
     const rawLines = [
       "We should ‘finish the ‘project for our ‘history ‘class",
@@ -102,12 +103,12 @@
       "I have ‘installed some ‘apps on my ‘phone"
     ];
 
-    // Tách dòng thành các từ và loại bỏ ký tự ‘ (nhưng không dùng cho đánh giá)
+    // Phân tích mỗi dòng: tách từ và loại bỏ ký tự ‘ (nhưng giữ nguyên thứ tự)
     const parsedLines = rawLines.map((line, index) => {
       const words = line.split(' ').map(word => {
-        const stressed = word.includes("‘");
+        // Loại bỏ ký tự ‘ để không ảnh hưởng đến so sánh
         const cleanWord = word.replace(/‘/g, '');
-        return { text: cleanWord, stressed };
+        return { text: cleanWord };
       });
       return { id: index, words };
     });
@@ -115,7 +116,7 @@
     let selectedLineId = null;
     const contentListEl = document.getElementById("content-list");
 
-    // Render nội dung chính (5 dòng)
+    // Render 5 đoạn nội dung vào giao diện
     function renderContentList() {
       contentListEl.innerHTML = "";
       parsedLines.forEach(lineObj => {
@@ -125,7 +126,6 @@
         lineObj.words.forEach(wordObj => {
           const span = document.createElement("span");
           span.classList.add("word");
-          if (wordObj.stressed) span.classList.add("stressed");
           span.textContent = wordObj.text + " ";
           lineDiv.appendChild(span);
         });
@@ -133,7 +133,7 @@
           document.querySelectorAll(".line").forEach(el => el.classList.remove("selected"));
           lineDiv.classList.add("selected");
           selectedLineId = lineObj.id;
-          // Khi chọn dòng mới, chỉ xoá feedback cũ chứ không xoá nội dung chính
+          // Khi chọn đoạn mới, xoá feedback cũ (nội dung chính vẫn giữ nguyên)
           document.getElementById("result").textContent = "";
         });
         contentListEl.appendChild(lineDiv);
@@ -155,7 +155,7 @@
       alert("Your browser does not support the Speech Recognition API.");
     }
 
-    // Yêu cầu truy cập micro ngay khi tải trang
+    // Yêu cầu truy cập micro khi tải trang
     let preGrantedStream = null;
     window.addEventListener("load", () => {
       navigator.mediaDevices.getUserMedia({ audio: true })
@@ -179,6 +179,7 @@
       startBtn.disabled = true;
       stopBtn.disabled = false;
 
+      // Sử dụng stream đã cấp phép nếu có
       if (preGrantedStream) {
         mediaStream = preGrantedStream;
       } else {
@@ -209,7 +210,7 @@
       };
 
       recognition.onend = () => {
-        // Recording chỉ dừng khi người dùng bấm nút "Stop Recording"
+        // Ghi âm chỉ dừng khi người dùng bấm "Stop Recording"
       };
     }
 
@@ -227,7 +228,7 @@
     /***********************************************************************
      * UTILS: LEVENSHTEIN DISTANCE & FUZZY MATCHING
      ***********************************************************************/
-    // Tính khoảng cách Levenshtein giữa 2 chuỗi
+    // Hàm tính khoảng cách Levenshtein giữa hai chuỗi
     function levenshtein(a, b) {
       const matrix = [];
       for (let i = 0; i <= b.length; i++) {
@@ -252,7 +253,7 @@
       return matrix[b.length][a.length];
     }
 
-    // Kiểm tra 2 từ có khớp theo fuzzy (cho phép sai lệch nhỏ, ngưỡng 30%)
+    // So sánh fuzzy hai từ với ngưỡng sai lệch 30%
     function isMatch(expected, recognized) {
       const dist = levenshtein(expected, recognized);
       return (dist / expected.length) < 0.3;
@@ -260,32 +261,33 @@
 
     /***********************************************************************
      * EVALUATE PRONUNCIATION:
-     * - Sử dụng phương pháp "hai con trỏ" và fuzzy matching để so sánh.
-     * - Cho phép bỏ qua từ thừa (extra word) trong transcript.
-     * - Bỏ qua trọng âm: tất cả từ lỗi đều được gom nhóm vào "Pronounce".
-     * - Hiển thị feedback với prefix (màu cam đỏ) và danh sách từ lỗi (màu vàng).
+     * - Dùng phương pháp "hai con trỏ" kết hợp fuzzy matching để so sánh từng từ.
+     * - Cho phép bỏ qua từ thừa trong transcript.
+     * - Bỏ qua thông tin về trọng âm: tất cả từ được đánh giá theo cách phát âm chung.
+     * - Nếu từ không khớp, đánh dấu lỗi và gom nhóm lại.
      ***********************************************************************/
     function evaluatePronunciation() {
       const expectedLine = parsedLines.find(line => line.id === Number(selectedLineId));
       if (!expectedLine) return;
-      
-      // Lấy mảng từ của expected (chuyển về lowercase)
+
+      // Lấy mảng từ từ nội dung gốc (lowercase)
       const expectedWords = expectedLine.words.map(w => w.text.toLowerCase());
       // Xử lý transcript: loại bỏ dấu câu, chuyển về lowercase và tách thành mảng từ
       const recognizedWords = finalTranscript.trim().toLowerCase().replace(/[.,?!]/g, "").split(/\s+/);
-      
+
+      // Lấy các span của từ trên giao diện
       const wordSpans = document.querySelector(`.line[data-id="${selectedLineId}"]`).querySelectorAll(".word");
-      
-      // Dùng object chứa lỗi (tất cả lỗi đều thuộc nhóm "Pronounce")
+
+      // Gom nhóm lỗi (tất cả vào nhóm "Pronounce")
       let errorGroups = { "Pronounce": new Set() };
-      
+
       let i = 0, j = 0;
       while (i < expectedWords.length && j < recognizedWords.length) {
         if (isMatch(expectedWords[i], recognizedWords[j])) {
           wordSpans[i].classList.remove("error");
           i++; j++;
         } else if (j + 1 < recognizedWords.length && isMatch(expectedWords[i], recognizedWords[j + 1])) {
-          // Nếu recognizedWords[j] là từ thừa
+          // Nếu từ trong transcript hiện tại có thể là từ thừa, bỏ qua nó
           j++;
         } else {
           // Từ expectedWords[i] không khớp
@@ -300,7 +302,7 @@
         wordSpans[i].classList.add("error");
         i++;
       }
-      
+
       // Xây dựng HTML feedback
       let errorHTML = "";
       let speechMessages = [];
@@ -313,16 +315,18 @@
                       </div>`;
         speechMessages.push(`Issue: Pronounce ${errors.map(w => `"${w}"`).join(", ")}`);
       }
-      
-      if (speechMessages.length > 0) {
+
+      if (errors.length > 0) {
         resultEl.innerHTML = errorHTML;
         speakFeedback(speechMessages.join(". "));
       } else {
-        resultEl.innerHTML = "";
+        // Nếu không có lỗi, thông báo khen thưởng
+        resultEl.innerHTML = `<div class="success">Great job! All words are pronounced correctly.</div>`;
+        speakFeedback("Great job! All words are pronounced correctly.");
       }
     }
 
-    // Cung cấp phản hồi bằng âm thanh qua SpeechSynthesis (chỉ với từ lỗi)
+    // Sử dụng SpeechSynthesis để phát âm thông báo feedback
     function speakFeedback(message) {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(message);
