@@ -62,6 +62,13 @@
       border-radius: 5px;
       margin-top: 20px;
     }
+    /* Các lớp định dạng cho feedback */
+    .msg-prefix {
+      color: #FF6347; /* Red-orange */
+    }
+    .error-word {
+      color: #FFD700; /* Gold */
+    }
     @media (max-width: 600px) {
       h1 { font-size: 1.5rem; }
       button { width: 100%; margin-bottom: 10px; }
@@ -93,6 +100,7 @@
       "I have ‘installed some ‘apps on my ‘phone"
     ];
 
+    // Phân tách các dòng thành các từ, đánh dấu từ cần nhấn trọng âm (stressed)
     const parsedLines = rawLines.map((line, index) => {
       const words = line.split(' ').map(word => {
         const stressed = word.includes("‘");
@@ -106,169 +114,4 @@
     const contentListEl = document.getElementById("content-list");
 
     function renderContentList() {
-      contentListEl.innerHTML = "";
-      parsedLines.forEach(lineObj => {
-        const lineDiv = document.createElement("div");
-        lineDiv.classList.add("line");
-        lineDiv.dataset.id = lineObj.id;
-        lineObj.words.forEach(wordObj => {
-          const span = document.createElement("span");
-          span.classList.add("word");
-          if (wordObj.stressed) span.classList.add("stressed");
-          span.textContent = wordObj.text + " ";
-          lineDiv.appendChild(span);
-        });
-        lineDiv.addEventListener("click", () => {
-          document.querySelectorAll(".line").forEach(el => el.classList.remove("selected"));
-          lineDiv.classList.add("selected");
-          selectedLineId = lineObj.id;
-          document.getElementById("result").textContent = "";
-        });
-        contentListEl.appendChild(lineDiv);
-      });
-    }
-    renderContentList();
-
-    /***********************************************************************
-     * Audio & Speech Recognition Setup
-     ***********************************************************************/
-    let recognition, finalTranscript = "";
-    let mediaStream = null;
-
-    const startBtn = document.getElementById("startBtn");
-    const stopBtn = document.getElementById("stopBtn");
-    const resultEl = document.getElementById("result");
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Your browser does not support the Speech Recognition API.");
-    }
-
-    // Request microphone access on page load
-    let preGrantedStream = null;
-    window.addEventListener("load", () => {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          preGrantedStream = stream;
-          console.log("Microphone access granted.");
-        })
-        .catch(err => {
-          console.error("Microphone access denied:", err);
-          alert("Microphone access is required for recording.");
-        });
-    });
-
-    function startRecording() {
-      if (selectedLineId === null) {
-        alert("Please select a line before recording.");
-        return;
-      }
-      finalTranscript = "";
-      resultEl.textContent = "Recording...";
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-
-      // Use pre-granted stream if available
-      if (preGrantedStream) {
-        mediaStream = preGrantedStream;
-      } else {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(stream => { mediaStream = stream; })
-          .catch(err => {
-            console.error("Error accessing microphone:", err);
-            alert("Unable to access the microphone.");
-          });
-      }
-
-      // Setup Speech Recognition
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = "en-US";
-      recognition.start();
-
-      recognition.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + " ";
-          }
-        }
-      };
-
-      recognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-      };
-
-      recognition.onend = () => {
-        // Do nothing: recording stops only when user clicks "Stop Recording"
-      };
-    }
-
-    function stopRecording() {
-      if (recognition) recognition.stop();
-      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-      evaluatePronunciation();
-    }
-
-    startBtn.addEventListener("click", startRecording);
-    stopBtn.addEventListener("click", stopRecording);
-
-    /***********************************************************************
-     * Evaluate Pronunciation:
-     * - Only provide feedback for mispronounced words.
-     * - Group identical error messages.
-     * - Highlight error words in red.
-     ***********************************************************************/
-    function evaluatePronunciation() {
-      const expectedLine = parsedLines.find(line => line.id === Number(selectedLineId));
-      if (!expectedLine) return;
-      
-      const expectedText = expectedLine.words.map(w => w.text).join(" ").trim().toLowerCase();
-      const recognizedText = finalTranscript.trim().toLowerCase().replace(/[.,?!]/g, "");
-      console.log("Expected:", expectedText);
-      console.log("Recognized:", recognizedText);
-
-      const expectedWords = expectedText.split(" ");
-      const recognizedWords = recognizedText.split(" ");
-      const lineDiv = document.querySelector(`.line[data-id="${selectedLineId}"]`);
-      let errorsFound = false;
-      const errorMessages = {};
-
-      const wordSpans = lineDiv.querySelectorAll(".word");
-      expectedWords.forEach((word, index) => {
-        const span = wordSpans[index];
-        // Only if the word is missing or does not match, mark it as an error
-        if (!recognizedWords[index] || recognizedWords[index] !== word) {
-          span.classList.add("error");
-          errorsFound = true;
-          let msg = expectedLine.words[index].stressed ?
-                    `Emphasize "${word}"` :
-                    `Pronounce "${word}" correctly`;
-          errorMessages[msg] = true;
-        } else {
-          span.classList.remove("error");
-        }
-      });
-
-      if (!errorsFound) {
-        resultEl.innerHTML = "<span style='color:#00FF00;'>Excellent! Your pronunciation is correct.</span>";
-      } else {
-        const messages = Object.keys(errorMessages).join("; ");
-        resultEl.innerHTML = `<span style='color:#FF6347;'>Issues: ${messages}</span>`;
-        speakFeedback(messages);
-      }
-    }
-
-    // Provide audio feedback using SpeechSynthesis (only for mispronounced words)
-    function speakFeedback(message) {
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.lang = "en-US";
-        window.speechSynthesis.speak(utterance);
-      }
-    }
-  </script>
-</body>
-</html>
+     
