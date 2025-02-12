@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pronunciation Practice</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* Global Styles */
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    /* Sentence list styles */
+    #sentence-list {
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .sentence-item {
+      background: #fff;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      padding: 10px;
+      cursor: pointer;
+      transition: box-shadow 0.3s, border-color 0.3s;
+    }
+    .sentence-item:hover {
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
+    }
+    .sentence-item.active {
+      border-color: #0070f3;
+      background: #e6f0ff;
+      box-shadow: 0 0 10px rgba(0,112,243,0.3);
+    }
+    /* Display area for the chosen sentence */
+    #selected-sentence-container {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #fff;
+      border: 2px solid #0070f3;
+      border-radius: 5px;
+      text-align: center;
+      font-size: 1.2em;
+    }
+    /* Stressed words – initially highlighted in bold blue */
+    .stressed-word {
+      font-weight: bold;
+      color: #0070f3;
+      transition: color 0.3s;
+    }
+    /* When marked incorrect they’ll be red */
+    .stressed-word.incorrect {
+      color: #ff0033;
+    }
+    /* Controls */
+    #controls {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #controls button {
+      font-size: 1em;
+      font-weight: bold;
+      padding: 10px 20px;
+      margin: 0 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+    #start-recording {
+      background: #28a745;
+      color: #fff;
+    }
+    #start-recording:hover:not(:disabled) {
+      background: #218838;
+    }
+    #stop-recording {
+      background: #dc3545;
+      color: #fff;
+    }
+    #stop-recording:hover:not(:disabled) {
+      background: #c82333;
+    }
+    #result {
+      text-align: center;
+      font-size: 1.1em;
+      padding: 10px;
+      background: #fff;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pronunciation Practice</h1>
+
+  <p>Please select a sentence to practice:</p>
+  <div id="sentence-list"></div>
+
+  <div id="selected-sentence-container">
+    <p id="selected-sentence">[No sentence selected]</p>
+  </div>
+
+  <div id="controls">
+    <button id="start-recording">Start Recording</button>
+    <button id="stop-recording" disabled>Stop Recording</button>
+  </div>
+
+  <div id="result">
+    <p id="transcript">Your transcript will appear here.</p>
+    <p id="feedback"></p>
+  </div>
+
+  <script>
+    /**********************
+     * Data & Configuration
+     **********************/
+    // Our five sample sentences.
+    // Note: In these sentences, any word that “contains” a stress marker (the left-quote “‘” or a leading/trailing plain quote)
+    // is considered to be stressed.
+    const sentences = [
+      "We should ‘finish the ‘project for our ‘history 'class",
+      "‘Peter is re‘vising for his e‘xam ‘next ‘week.",
+      "‘Students will ‘spend more ‘time ‘working with ‘other ‘classmates.",
+      "I ‘like to ‘watch ‘videos that ‘help me ‘learn ‘new ‘things",
+      "I have ‘installed some ‘apps on my ‘phone"
+    ];
+
+    // Will hold the normalized (marker-free) version for comparison.
+    let expectedText = "";
+    // Will hold the HTML version with <span> tags for stressed words.
+    let renderedHTML = "";
+    // To keep track of stressed words (in lowercase for comparison) and the corresponding span elements.
+    let stressedWordElements = [];
+
+    /**********************
+     * Utility Functions
+     **********************/
+    // Remove the stress markers from a sentence.
+    // (In a production app you might want a more refined normalization that preserves apostrophes in contractions.)
+    function normalizeSentence(sentence) {
+      // Remove both the Unicode left quote “‘” and the ASCII quote if used as a marker.
+      return sentence.replace(/[‘]/g, '').replace(/\b'/g, '');
+    }
+
+    // Given a sentence with stress markers, parse it word‐by‐word.
+    // Wrap any word that starts with “‘” or ends with a plain quote in a span.
+    // Returns an object { html: string, stressedWords: array }.
+    function parseSentence(sentence) {
+      const words = sentence.split(" ");
+      const stressedWords = [];
+      const parsedWords = words.map(word => {
+        let isStressed = false;
+        let cleanWord = word;
+        // If a word starts with the special marker “‘” then mark it stressed.
+        if (cleanWord.startsWith("‘")) {
+          isStressed = true;
+          cleanWord = cleanWord.substring(1);
+        }
+        // If a word ends with a plain quote, mark it stressed.
+        if (cleanWord.endsWith("'")) {
+          isStressed = true;
+          cleanWord = cleanWord.slice(0, -1);
+        }
+        // Also remove any stray markers in the middle (for words like e‘xam or re‘vising)
+        if (cleanWord.indexOf("‘") !== -1) {
+          isStressed = true;
+          cleanWord = cleanWord.replace(/‘/g, '');
+        }
+        if (isStressed) {
+          stressedWords.push(cleanWord.toLowerCase());
+          return `<span class="stressed-word" data-word="${cleanWord.toLowerCase()}">${cleanWord}</span>`;
+        } else {
+          return word;
+        }
+      });
+      return { html: parsedWords.join(" "), stressedWords };
+    }
+
+    // Remove punctuation for a simple word-by-word comparison.
+    function removePunctuation(text) {
+      return text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+    }
+
+    /**********************
+     * UI Rendering
+     **********************/
+    const sentenceListDiv = document.getElementById('sentence-list');
+    const selectedSentenceP = document.getElementById('selected-sentence');
+    const transcriptP = document.getElementById('transcript');
+    const feedbackP = document.getElementById('feedback');
+
+    // Render the list of sentences.
+    sentences.forEach((sent, index) => {
+      const div = document.createElement('div');
+      div.className = 'sentence-item';
+      // Remove markers for the list view.
+      div.innerText = normalizeSentence(sent);
+      div.addEventListener('click', () => {
+        // Remove active class from any other sentence items.
+        document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('active'));
+        div.classList.add('active');
+        // Parse and render the selected sentence.
+        const parsed = parseSentence(sent);
+        renderedHTML = parsed.html;
+        expectedText = normalizeSentence(sent);
+        stressedWordElements = []; // reset
+        // Render the sentence inside the container.
+        selectedSentenceP.innerHTML = renderedHTML;
+        // Also collect all stressed word spans so we can update them later.
+        selectedSentenceP.querySelectorAll('.stressed-word').forEach(span => {
+          stressedWordElements.push(span);
+        });
+        // Clear previous results.
+        transcriptP.innerText = "Your transcript will appear here.";
+        feedbackP.innerText = "";
+      });
+      sentenceListDiv.appendChild(div);
+    });
+
+    /**********************
+     * Speech Recognition Setup
+     **********************/
+    let recognition;
+    let recognizing = false;
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Sorry, your browser does not support the Web Speech API. Please try Google Chrome.");
+    } else {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = function() {
+        recognizing = true;
+        transcriptP.innerText = "Listening...";
+        feedbackP.innerText = "";
+      };
+
+      recognition.onerror = function(event) {
+        console.error("Speech recognition error", event);
+        transcriptP.innerText = "Error occurred during recognition: " + event.error;
+      };
+
+      recognition.onend = function() {
+        recognizing = false;
+        document.getElementById('start-recording').disabled = false;
+        document.getElementById('stop-recording').disabled = true;
+      };
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        transcriptP.innerText = "You said: " + transcript;
+        evaluatePronunciation(transcript);
+      };
+    }
+
+    /**********************
+     * Pronunciation Evaluation
+     **********************/
+    // Compare the transcript with the expected text.
+    // For stressed words, if they do not appear in the transcript (case-insensitive),
+    // mark the corresponding word in red and speak a hint.
+    function evaluatePronunciation(transcript) {
+      // Normalize both texts: remove punctuation and convert to lower case.
+      const normExpected = removePunctuation(expectedText).toLowerCase();
+      const normTranscript = removePunctuation(transcript).toLowerCase();
+
+      // For each stressed word (we stored these from parseSentence), check if it is present.
+      let mispronounced = [];
+      stressedWordElements.forEach(span => {
+        const word = span.getAttribute('data-word');
+        // A simple check: does the transcript contain the word as a whole word?
+        // We add spaces around both strings to reduce false matches.
+        const regex = new RegExp("\\b" + word + "\\b");
+        if (!regex.test(normTranscript)) {
+          // Mark as mispronounced.
+          span.classList.add("incorrect");
+          mispronounced.push(word);
+        } else {
+          span.classList.remove("incorrect");
+        }
+      });
+
+      // Provide feedback.
+      if (mispronounced.length === 0) {
+        feedbackP.innerText = "Great job! You pronounced all the stressed words correctly.";
+      } else {
+        feedbackP.innerText = "Please re-read the following stressed words clearly: " + mispronounced.join(", ");
+        speakFeedback("Please re-read the following words: " + mispronounced.join(", "));
+      }
+    }
+
+    // Use the Speech Synthesis API to speak the feedback.
+    function speakFeedback(message) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'en-US';
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    /**********************
+     * Recording Controls
+     **********************/
+    const startBtn = document.getElementById('start-recording');
+    const stopBtn = document.getElementById('stop-recording');
+
+    startBtn.addEventListener('click', () => {
+      // Ensure a sentence has been selected.
+      if (expectedText === "") {
+        alert("Please select a sentence first.");
+        return;
+      }
+      // Request microphone access by starting recognition.
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error("Recognition start error: ", err);
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (recognizing) {
+        recognition.stop();
+      }
+    });
+
+    /**********************
+     * Additional Suggestions:
+     **********************
+     * 1. Enhance the pronunciation evaluation by integrating a dedicated API (such as Google Cloud Speech-to-Text with pronunciation scoring)
+     *    so that you can assess not only word matching but also intonation, stress, and rhythm.
+     *
+     * 2. Add visual animations (for example, a waveform or volume meter) while recording.
+     *
+     * 3. Allow the user to replay their recording and compare it with a “model” pronunciation (perhaps generated via text-to-speech).
+     *
+     * 4. Save user progress or history (if deploying a backend) so that learners can track improvements over time.
+     *
+     * 5. Improve error handling and add loading spinners where appropriate.
+     *
+     * 6. Consider using modern frameworks (like React or Vue) if the application is going to grow further.
+     **********************/
+  </script>
+</body>
+</html>
