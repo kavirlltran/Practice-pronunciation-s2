@@ -53,7 +53,7 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     button:hover:not(:disabled) { background: #FFC107; }
-    /* Evaluation result styling */
+    /* Evaluation Result Styling */
     #result {
       font-size: 1.4rem;
       text-align: center;
@@ -83,7 +83,7 @@
 
   <script>
     /***********************************************************************
-     * Source data: 5 lines (words with a leading ‘ indicate stressed words)
+     * Source Data: 5 lines (a leading ‘ indicates a stressed word)
      ***********************************************************************/
     const rawLines = [
       "We should ‘finish the ‘project for our ‘history ‘class",
@@ -133,9 +133,7 @@
      * Audio & Speech Recognition Setup
      ***********************************************************************/
     let recognition, finalTranscript = "";
-    let mediaStream = null, audioContext = null, analyser = null, silenceStart = null, silenceInterval = null;
-    const SILENCE_THRESHOLD = 0.02;
-    const SILENCE_DURATION = 30000; // 30 seconds of silence
+    let mediaStream = null;
 
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
@@ -145,6 +143,20 @@
     if (!SpeechRecognition) {
       alert("Your browser does not support the Speech Recognition API.");
     }
+
+    // Request microphone access on page load
+    let preGrantedStream = null;
+    window.addEventListener("load", () => {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          preGrantedStream = stream;
+          console.log("Microphone access granted.");
+        })
+        .catch(err => {
+          console.error("Microphone access denied:", err);
+          alert("Microphone access is required for recording.");
+        });
+    });
 
     function startRecording() {
       if (selectedLineId === null) {
@@ -156,19 +168,19 @@
       startBtn.disabled = true;
       stopBtn.disabled = false;
 
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        mediaStream = stream;
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioContext.createMediaStreamSource(stream);
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        source.connect(analyser);
-        monitorSilence();
-      }).catch(err => {
-        console.error("Error accessing microphone:", err);
-        alert("Unable to access the microphone.");
-      });
+      // Use pre-granted stream if available
+      if (preGrantedStream) {
+        mediaStream = preGrantedStream;
+      } else {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => { mediaStream = stream; })
+          .catch(err => {
+            console.error("Error accessing microphone:", err);
+            alert("Unable to access the microphone.");
+          });
+      }
 
+      // Setup Speech Recognition
       recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = false;
@@ -188,54 +200,26 @@
       };
 
       recognition.onend = () => {
-        stopRecording();
+        // Do nothing: recording stops only when user clicks "Stop Recording"
       };
     }
 
     function stopRecording() {
       if (recognition) recognition.stop();
       if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-      if (audioContext) audioContext.close();
-      clearInterval(silenceInterval);
       startBtn.disabled = false;
       stopBtn.disabled = true;
       evaluatePronunciation();
-    }
-
-    // Monitor the audio energy and auto-stop if silence > 30s
-    function monitorSilence() {
-      silenceStart = null;
-      silenceInterval = setInterval(() => {
-        if (!analyser) return;
-        const dataArray = new Uint8Array(analyser.fftSize);
-        analyser.getByteTimeDomainData(dataArray);
-        let sumSquares = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          const normalized = (dataArray[i] - 128) / 128;
-          sumSquares += normalized * normalized;
-        }
-        const rms = Math.sqrt(sumSquares / dataArray.length);
-        if (rms < SILENCE_THRESHOLD) {
-          if (!silenceStart) {
-            silenceStart = Date.now();
-          } else if (Date.now() - silenceStart > SILENCE_DURATION) {
-            console.log("Silence detected for over 30 seconds. Stopping recording...");
-            stopRecording();
-          }
-        } else {
-          silenceStart = null;
-        }
-      }, 200);
     }
 
     startBtn.addEventListener("click", startRecording);
     stopBtn.addEventListener("click", stopRecording);
 
     /***********************************************************************
-     * Evaluate pronunciation:
-     * - Compare expected vs recognized transcript.
+     * Evaluate Pronunciation:
+     * - Only provide feedback for mispronounced words.
      * - Group identical error messages.
-     * - Highlight errors by marking words in red.
+     * - Highlight error words in red.
      ***********************************************************************/
     function evaluatePronunciation() {
       const expectedLine = parsedLines.find(line => line.id === Number(selectedLineId));
@@ -255,13 +239,14 @@
       const wordSpans = lineDiv.querySelectorAll(".word");
       expectedWords.forEach((word, index) => {
         const span = wordSpans[index];
+        // Only if the word is missing or does not match, mark it as an error
         if (!recognizedWords[index] || recognizedWords[index] !== word) {
           span.classList.add("error");
           errorsFound = true;
-          let message = expectedLine.words[index].stressed ?
-                        `Emphasize "${word}"` :
-                        `Pronounce "${word}" correctly`;
-          errorMessages[message] = true;
+          let msg = expectedLine.words[index].stressed ?
+                    `Emphasize "${word}"` :
+                    `Pronounce "${word}" correctly`;
+          errorMessages[msg] = true;
         } else {
           span.classList.remove("error");
         }
@@ -276,7 +261,7 @@
       }
     }
 
-    // Provide audio feedback using SpeechSynthesis
+    // Provide audio feedback using SpeechSynthesis (only for mispronounced words)
     function speakFeedback(message) {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(message);
