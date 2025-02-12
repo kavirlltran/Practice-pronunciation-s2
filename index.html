@@ -23,7 +23,7 @@
       border-radius: 8px;
     }
     h1 { text-align: center; margin-bottom: 20px; font-weight: bold; }
-    /* Phần nội dung chính (5 dòng) */
+    /* Phần nội dung chính (5 dòng) luôn hiển thị */
     #content-list { margin-bottom: 20px; }
     .line {
       padding: 10px;
@@ -55,48 +55,10 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     button:hover:not(:disabled) { background: #FFC107; }
-    /* Kết quả đánh giá (feedback) */
+    /* Khu vực Feedback (đánh giá) */
     #result {
       font-size: 1.4rem;
       text-align: center;
       padding: 15px;
       border: 2px solid #FFD700;
       border-radius: 5px;
-      margin-top: 20px;
-    }
-    /* Định dạng feedback theo 2 màu:
-       • Phần prefix (ví dụ: "Issue: Pronounce") với màu cam đỏ.
-       • Các từ lỗi (ví dụ: "that", "me") với màu vàng. */
-    .msg-prefix { color: #FF6347; }
-    .error-word { color: #FFD700; }
-    @media (max-width: 600px) {
-      h1 { font-size: 1.5rem; }
-      button { width: 100%; margin-bottom: 10px; }
-      #controls { display: flex; flex-direction: column; align-items: center; }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Pronunciation Practice</h1>
-    <p>Please select a line before recording:</p>
-    <!-- Phần nội dung chính với 5 dòng -->
-    <div id="content-list"></div>
-    <div id="controls">
-      <button id="startBtn">Start Recording</button>
-      <button id="stopBtn" disabled>Stop Recording</button>
-    </div>
-    <!-- Kết quả đánh giá chỉ xuất hiện khi có lỗi -->
-    <div id="result"></div>
-  </div>
-
-  <script>
-    /***********************************************************************
-     * SOURCE DATA
-     * 5 lines (a leading ‘ indicates a stressed word)
-     ***********************************************************************/
-    const rawLines = [
-      "We should ‘finish the ‘project for our ‘history ‘class",
-      "‘Peter is re‘vising for his e‘xam ‘next ‘week.",
-      "‘Students will ‘spend more ‘time ‘working with ‘other ‘classmates.",
-      "I ‘like
