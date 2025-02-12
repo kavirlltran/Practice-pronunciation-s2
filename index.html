@@ -66,7 +66,7 @@
     }
     /* Định dạng feedback theo 2 màu:
        • Prefix (ví dụ: "Issue: Pronounce") với màu cam đỏ.
-       • Các từ lỗi (ví dụ: "that", "me") với màu vàng. */
+       • Danh sách từ lỗi với màu vàng. */
     .msg-prefix { color: #FF6347; }
     .error-word { color: #FFD700; }
     @media (max-width: 600px) {
@@ -92,7 +92,7 @@
 
   <script>
     /***********************************************************************
-     * SOURCE DATA: 5 lines (a leading ‘ indicates a stressed word)
+     * SOURCE DATA: 5 lines (a leading ‘ indicates a stressed word, but here we ignore stress)
      ***********************************************************************/
     const rawLines = [
       "We should ‘finish the ‘project for our ‘history ‘class",
@@ -102,7 +102,7 @@
       "I have ‘installed some ‘apps on my ‘phone"
     ];
 
-    // Tách dòng thành các từ và đánh dấu từ cần nhấn (stressed)
+    // Tách dòng thành các từ và loại bỏ ký tự ‘ (nhưng không dùng cho đánh giá)
     const parsedLines = rawLines.map((line, index) => {
       const words = line.split(' ').map(word => {
         const stressed = word.includes("‘");
@@ -115,7 +115,7 @@
     let selectedLineId = null;
     const contentListEl = document.getElementById("content-list");
 
-    // Render main content (5 lines)
+    // Render nội dung chính (5 dòng)
     function renderContentList() {
       contentListEl.innerHTML = "";
       parsedLines.forEach(lineObj => {
@@ -130,11 +130,10 @@
           lineDiv.appendChild(span);
         });
         lineDiv.addEventListener("click", () => {
-          // Khi chọn dòng, đánh dấu selected (nội dung chính không bị xoá)
           document.querySelectorAll(".line").forEach(el => el.classList.remove("selected"));
           lineDiv.classList.add("selected");
           selectedLineId = lineObj.id;
-          // Chỉ xoá feedback, không xoá nội dung chính
+          // Khi chọn dòng mới, chỉ xoá feedback cũ chứ không xoá nội dung chính
           document.getElementById("result").textContent = "";
         });
         contentListEl.appendChild(lineDiv);
@@ -180,7 +179,6 @@
       startBtn.disabled = true;
       stopBtn.disabled = false;
 
-      // Dùng stream đã cấp phép nếu có
       if (preGrantedStream) {
         mediaStream = preGrantedStream;
       } else {
@@ -211,7 +209,7 @@
       };
 
       recognition.onend = () => {
-        // Recording dừng chỉ khi người dùng bấm nút "Stop Recording"
+        // Recording chỉ dừng khi người dùng bấm nút "Stop Recording"
       };
     }
 
@@ -264,7 +262,7 @@
      * EVALUATE PRONUNCIATION:
      * - Sử dụng phương pháp "hai con trỏ" và fuzzy matching để so sánh.
      * - Cho phép bỏ qua từ thừa (extra word) trong transcript.
-     * - Nhóm lỗi theo loại: "Pronounce" (không cần nhấn) và "Emphasize" (cần nhấn).
+     * - Bỏ qua trọng âm: tất cả từ lỗi đều được gom nhóm vào "Pronounce".
      * - Hiển thị feedback với prefix (màu cam đỏ) và danh sách từ lỗi (màu vàng).
      ***********************************************************************/
     function evaluatePronunciation() {
@@ -278,47 +276,42 @@
       
       const wordSpans = document.querySelector(`.line[data-id="${selectedLineId}"]`).querySelectorAll(".word");
       
-      // Object chứa lỗi theo loại, dùng Set để gom nhóm các từ lỗi giống nhau
-      let errorGroups = { "Pronounce": new Set(), "Emphasize": new Set() };
+      // Dùng object chứa lỗi (tất cả lỗi đều thuộc nhóm "Pronounce")
+      let errorGroups = { "Pronounce": new Set() };
       
       let i = 0, j = 0;
-      // Sử dụng phương pháp hai con trỏ
       while (i < expectedWords.length && j < recognizedWords.length) {
         if (isMatch(expectedWords[i], recognizedWords[j])) {
           wordSpans[i].classList.remove("error");
           i++; j++;
         } else if (j + 1 < recognizedWords.length && isMatch(expectedWords[i], recognizedWords[j + 1])) {
-          // Giả sử recognizedWords[j] là từ thừa
+          // Nếu recognizedWords[j] là từ thừa
           j++;
         } else {
           // Từ expectedWords[i] không khớp
-          let type = expectedLine.words[i].stressed ? "Emphasize" : "Pronounce";
-          errorGroups[type].add(expectedLine.words[i].text);
+          errorGroups["Pronounce"].add(expectedLine.words[i].text);
           wordSpans[i].classList.add("error");
           i++;
         }
       }
       // Nếu còn từ expected chưa được so sánh, đánh dấu lỗi
       while (i < expectedWords.length) {
-        let type = expectedLine.words[i].stressed ? "Emphasize" : "Pronounce";
-        errorGroups[type].add(expectedLine.words[i].text);
+        errorGroups["Pronounce"].add(expectedLine.words[i].text);
         wordSpans[i].classList.add("error");
         i++;
       }
       
-      // Xây dựng HTML feedback dựa trên các nhóm lỗi
+      // Xây dựng HTML feedback
       let errorHTML = "";
       let speechMessages = [];
-      for (let type in errorGroups) {
-        const errors = Array.from(errorGroups[type]);
-        if (errors.length > 0) {
-          const wordList = errors.map(w => `"${w}"`).join(", ");
-          errorHTML += `<div class="error-msg">
-                          <span class="msg-prefix">Issue: ${type} </span>
-                          <span class="error-word">${wordList}</span>
-                        </div>`;
-          speechMessages.push(`Issue: ${type} ${errors.map(w => `"${w}"`).join(", ")}`);
-        }
+      const errors = Array.from(errorGroups["Pronounce"]);
+      if (errors.length > 0) {
+        const wordList = errors.map(w => `"${w}"`).join(", ");
+        errorHTML += `<div class="error-msg">
+                        <span class="msg-prefix">Issue: Pronounce </span>
+                        <span class="error-word">${wordList}</span>
+                      </div>`;
+        speechMessages.push(`Issue: Pronounce ${errors.map(w => `"${w}"`).join(", ")}`);
       }
       
       if (speechMessages.length > 0) {
