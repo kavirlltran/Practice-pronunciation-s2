@@ -1,361 +1,394 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pronunciation Practice</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* Global Styles */
+    /* Tổng thể reset và font */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: url('https://source.unsplash.com/1600x900/?education,learning') no-repeat center center fixed;
+      background-size: cover;
+      color: #fff;
       padding: 20px;
-      background: #f4f4f4;
-      color: #333;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 20px;
+      border-radius: 8px;
     }
     h1 {
       text-align: center;
       margin-bottom: 20px;
-      text-transform: uppercase;
-    }
-    .bold {
       font-weight: bold;
     }
-    /* Sentence list styles */
-    #sentence-list {
+    /* Danh sách nội dung (các dòng) */
+    #content-list {
       margin-bottom: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
     }
-    .sentence-item {
-      background: #fff;
-      border: 2px solid #ddd;
-      border-radius: 5px;
+    .line {
       padding: 10px;
-      cursor: pointer;
-      transition: box-shadow 0.3s, border-color 0.3s;
-    }
-    .sentence-item:hover {
-      box-shadow: 0 0 8px rgba(0,0,0,0.2);
-    }
-    .sentence-item.active {
-      border-color: #0070f3;
-      background: #e6f0ff;
-      box-shadow: 0 0 10px rgba(0,112,243,0.3);
-    }
-    /* Display area for the chosen sentence */
-    #selected-sentence-container {
-      margin-bottom: 20px;
-      padding: 15px;
-      background: #fff;
-      border: 2px solid #0070f3;
+      margin-bottom: 10px;
+      border: 2px solid transparent;
       border-radius: 5px;
-      text-align: center;
-      font-size: 1.2em;
+      cursor: pointer;
+      transition: background 0.3s, border-color 0.3s;
     }
-    /* Stressed words – initially highlighted in bold blue */
-    .stressed-word {
+    .line:hover {
+      background: rgba(255,255,255,0.1);
+    }
+    .line.selected {
+      background: rgba(255,255,255,0.2);
+      border-color: #FFD700;
+    }
+    /* Mỗi từ được bọc trong span */
+    .word {
       font-weight: bold;
-      color: #0070f3;
-      transition: color 0.3s;
+      padding: 0 3px;
+      transition: transform 0.2s;
     }
-    /* When marked incorrect they’ll be red */
-    .stressed-word.incorrect {
-      color: #ff0033;
+    .word.stressed {
+      /* Những từ cần nhấn trọng âm có viền nổi bật */
+      border-bottom: 2px dashed #FFD700;
     }
-    /* Controls */
+    .word.error {
+      color: #FF6347;
+    }
+    /* Các nút điều khiển */
     #controls {
       text-align: center;
       margin-bottom: 20px;
     }
-    #controls button {
-      font-size: 1em;
-      font-weight: bold;
+    button {
+      font-size: 1rem;
       padding: 10px 20px;
       margin: 0 10px;
-      cursor: pointer;
       border: none;
       border-radius: 5px;
+      background: #FFD700;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
       transition: background 0.3s;
     }
-    #start-recording {
-      background: #28a745;
-      color: #fff;
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
     }
-    #start-recording:hover:not(:disabled) {
-      background: #218838;
+    button:hover:not(:disabled) {
+      background: #FFC107;
     }
-    #stop-recording {
-      background: #dc3545;
-      color: #fff;
-    }
-    #stop-recording:hover:not(:disabled) {
-      background: #c82333;
-    }
+    /* Kết quả hiển thị sau khi ghi âm */
     #result {
+      font-size: 1.2rem;
       text-align: center;
-      font-size: 1.1em;
       padding: 10px;
-      background: #fff;
-      border: 2px solid #ddd;
-      border-radius: 5px;
+    }
+    /* Responsive */
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+      button {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      #controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Pronunciation Practice</h1>
-
-  <p>Please select a sentence to practice:</p>
-  <div id="sentence-list"></div>
-
-  <div id="selected-sentence-container">
-    <p id="selected-sentence">[No sentence selected]</p>
-  </div>
-
-  <div id="controls">
-    <button id="start-recording">Start Recording</button>
-    <button id="stop-recording" disabled>Stop Recording</button>
-  </div>
-
-  <div id="result">
-    <p id="transcript">Your transcript will appear here.</p>
-    <p id="feedback"></p>
+  <div class="container">
+    <h1>Pronunciation Practice</h1>
+    <p>Chọn một dòng nội dung dưới đây trước khi bắt đầu ghi âm:</p>
+    <div id="content-list">
+      <!-- Các dòng nội dung sẽ được tạo bằng JS -->
+    </div>
+    <div id="controls">
+      <button id="startBtn">Start Recording</button>
+      <button id="stopBtn" disabled>Stop Recording</button>
+    </div>
+    <div id="result"></div>
   </div>
 
   <script>
-    /**********************
-     * Data & Configuration
-     **********************/
-    // Our five sample sentences.
-    // Note: In these sentences, any word that “contains” a stress marker (the left-quote “‘” or a leading/trailing plain quote)
-    // is considered to be stressed.
-    const sentences = [
-      "We should ‘finish the ‘project for our ‘history 'class",
+    /***********************************************************************
+     * Dữ liệu nguồn: 5 dòng nội dung. Trong đó, các từ có dấu ‘ là cần
+     * được nhấn trọng âm.
+     ***********************************************************************/
+    const rawLines = [
+      "We should ‘finish the ‘project for our ‘history ‘class",
       "‘Peter is re‘vising for his e‘xam ‘next ‘week.",
       "‘Students will ‘spend more ‘time ‘working with ‘other ‘classmates.",
       "I ‘like to ‘watch ‘videos that ‘help me ‘learn ‘new ‘things",
       "I have ‘installed some ‘apps on my ‘phone"
     ];
 
-    // Will hold the normalized (marker-free) version for comparison.
-    let expectedText = "";
-    // Will hold the HTML version with <span> tags for stressed words.
-    let renderedHTML = "";
-    // To keep track of stressed words (in lowercase for comparison) and the corresponding span elements.
-    let stressedWordElements = [];
-
-    /**********************
-     * Utility Functions
-     **********************/
-    // Remove the stress markers from a sentence.
-    // (In a production app you might want a more refined normalization that preserves apostrophes in contractions.)
-    function normalizeSentence(sentence) {
-      // Remove both the Unicode left quote “‘” and the ASCII quote if used as a marker.
-      return sentence.replace(/[‘]/g, '').replace(/\b'/g, '');
-    }
-
-    // Given a sentence with stress markers, parse it word‐by‐word.
-    // Wrap any word that starts with “‘” or ends with a plain quote in a span.
-    // Returns an object { html: string, stressedWords: array }.
-    function parseSentence(sentence) {
-      const words = sentence.split(" ");
-      const stressedWords = [];
-      const parsedWords = words.map(word => {
-        let isStressed = false;
-        let cleanWord = word;
-        // If a word starts with the special marker “‘” then mark it stressed.
-        if (cleanWord.startsWith("‘")) {
-          isStressed = true;
-          cleanWord = cleanWord.substring(1);
-        }
-        // If a word ends with a plain quote, mark it stressed.
-        if (cleanWord.endsWith("'")) {
-          isStressed = true;
-          cleanWord = cleanWord.slice(0, -1);
-        }
-        // Also remove any stray markers in the middle (for words like e‘xam or re‘vising)
-        if (cleanWord.indexOf("‘") !== -1) {
-          isStressed = true;
-          cleanWord = cleanWord.replace(/‘/g, '');
-        }
-        if (isStressed) {
-          stressedWords.push(cleanWord.toLowerCase());
-          return `<span class="stressed-word" data-word="${cleanWord.toLowerCase()}">${cleanWord}</span>`;
-        } else {
-          return word;
-        }
+    // Biến lưu trữ nội dung đã được parse: mỗi dòng là một object chứa mảng từ và thông tin trọng âm
+    const parsedLines = rawLines.map((line, index) => {
+      // Tách từ bằng khoảng trắng; giữ lại dấu câu nếu có.
+      const words = line.split(' ').map(word => {
+        // Nếu từ có chứa ký tự ‘, thì đánh dấu stressed = true và loại bỏ ký tự đó ra khỏi hiển thị
+        const stressed = word.includes("‘");
+        // Loại bỏ tất cả ký tự ‘ (có thể có ở đầu, giữa hay cuối từ)
+        const cleanWord = word.replace(/‘/g, '');
+        return { text: cleanWord, stressed };
       });
-      return { html: parsedWords.join(" "), stressedWords };
-    }
-
-    // Remove punctuation for a simple word-by-word comparison.
-    function removePunctuation(text) {
-      return text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
-    }
-
-    /**********************
-     * UI Rendering
-     **********************/
-    const sentenceListDiv = document.getElementById('sentence-list');
-    const selectedSentenceP = document.getElementById('selected-sentence');
-    const transcriptP = document.getElementById('transcript');
-    const feedbackP = document.getElementById('feedback');
-
-    // Render the list of sentences.
-    sentences.forEach((sent, index) => {
-      const div = document.createElement('div');
-      div.className = 'sentence-item';
-      // Remove markers for the list view.
-      div.innerText = normalizeSentence(sent);
-      div.addEventListener('click', () => {
-        // Remove active class from any other sentence items.
-        document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('active'));
-        div.classList.add('active');
-        // Parse and render the selected sentence.
-        const parsed = parseSentence(sent);
-        renderedHTML = parsed.html;
-        expectedText = normalizeSentence(sent);
-        stressedWordElements = []; // reset
-        // Render the sentence inside the container.
-        selectedSentenceP.innerHTML = renderedHTML;
-        // Also collect all stressed word spans so we can update them later.
-        selectedSentenceP.querySelectorAll('.stressed-word').forEach(span => {
-          stressedWordElements.push(span);
-        });
-        // Clear previous results.
-        transcriptP.innerText = "Your transcript will appear here.";
-        feedbackP.innerText = "";
-      });
-      sentenceListDiv.appendChild(div);
+      return { id: index, words };
     });
 
-    /**********************
-     * Speech Recognition Setup
-     **********************/
-    let recognition;
-    let recognizing = false;
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert("Sorry, your browser does not support the Web Speech API. Please try Google Chrome.");
-    } else {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let selectedLineId = null;
+
+    // Render nội dung các dòng ra giao diện
+    const contentListEl = document.getElementById("content-list");
+    function renderContentList() {
+      contentListEl.innerHTML = "";
+      parsedLines.forEach(lineObj => {
+        const lineDiv = document.createElement("div");
+        lineDiv.classList.add("line");
+        lineDiv.dataset.id = lineObj.id;
+        // Tạo HTML cho từng từ
+        lineObj.words.forEach(wordObj => {
+          const span = document.createElement("span");
+          span.classList.add("word");
+          if (wordObj.stressed) {
+            span.classList.add("stressed");
+          }
+          span.textContent = wordObj.text + " ";
+          lineDiv.appendChild(span);
+        });
+        // Khi người dùng click vào dòng, đánh dấu dòng được chọn
+        lineDiv.addEventListener("click", () => {
+          // Xóa lớp selected của các dòng khác
+          document.querySelectorAll(".line").forEach(el => el.classList.remove("selected"));
+          lineDiv.classList.add("selected");
+          selectedLineId = lineObj.id;
+          // Xoá kết quả cũ nếu có
+          document.getElementById("result").textContent = "";
+        });
+        contentListEl.appendChild(lineDiv);
+      });
+    }
+    renderContentList();
+
+    /***********************************************************************
+     * Các biến và hàm liên quan đến ghi âm, nhận dạng giọng nói và phân tích âm
+     ***********************************************************************/
+    let recognition;          // SpeechRecognition instance
+    let finalTranscript = ""; // Nội dung nhận dạng được
+    let mediaStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let silenceStart = null;
+    let silenceInterval = null;
+    const SILENCE_THRESHOLD = 0.02; // ngưỡng năng lượng (có thể điều chỉnh)
+    const SILENCE_DURATION = 6000;  // 6000 ms = 6 giây
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const resultEl = document.getElementById("result");
+
+    // Khởi tạo SpeechRecognition (chú ý: dùng webkitSpeechRecognition cho Chrome)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Trình duyệt của bạn không hỗ trợ Speech Recognition API.");
+    }
+
+    function startRecording() {
+      // Kiểm tra đã chọn dòng chưa
+      if (selectedLineId === null) {
+        alert("Vui lòng chọn một dòng nội dung trước khi ghi âm.");
+        return;
+      }
+      finalTranscript = "";
+      resultEl.textContent = "Đang ghi âm...";
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+
+      // Yêu cầu quyền truy cập Micro với Web Audio API để phân tích im lặng
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        mediaStream = stream;
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        monitorSilence(); // Bắt đầu giám sát im lặng
+      }).catch(err => {
+        console.error("Lỗi khi truy cập Micro:", err);
+        alert("Không thể truy cập micro.");
+      });
+
+      // Khởi tạo và bắt đầu SpeechRecognition
       recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = false;
-      recognition.lang = 'en-US';
+      recognition.lang = "en-US";
+      recognition.start();
 
-      recognition.onstart = function() {
-        recognizing = true;
-        transcriptP.innerText = "Listening...";
-        feedbackP.innerText = "";
+      recognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + " ";
+          }
+        }
       };
 
-      recognition.onerror = function(event) {
-        console.error("Speech recognition error", event);
-        transcriptP.innerText = "Error occurred during recognition: " + event.error;
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
       };
 
-      recognition.onend = function() {
-        recognizing = false;
-        document.getElementById('start-recording').disabled = false;
-        document.getElementById('stop-recording').disabled = true;
-      };
-
-      recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript;
-        transcriptP.innerText = "You said: " + transcript;
-        evaluatePronunciation(transcript);
+      recognition.onend = () => {
+        // Khi dừng ghi âm tự động hay bằng nút
+        stopRecording();
       };
     }
 
-    /**********************
-     * Pronunciation Evaluation
-     **********************/
-    // Compare the transcript with the expected text.
-    // For stressed words, if they do not appear in the transcript (case-insensitive),
-    // mark the corresponding word in red and speak a hint.
-    function evaluatePronunciation(transcript) {
-      // Normalize both texts: remove punctuation and convert to lower case.
-      const normExpected = removePunctuation(expectedText).toLowerCase();
-      const normTranscript = removePunctuation(transcript).toLowerCase();
+    function stopRecording() {
+      if (recognition) {
+        recognition.stop();
+      }
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+      if (audioContext) {
+        audioContext.close();
+      }
+      clearInterval(silenceInterval);
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
 
-      // For each stressed word (we stored these from parseSentence), check if it is present.
-      let mispronounced = [];
-      stressedWordElements.forEach(span => {
-        const word = span.getAttribute('data-word');
-        // A simple check: does the transcript contain the word as a whole word?
-        // We add spaces around both strings to reduce false matches.
-        const regex = new RegExp("\\b" + word + "\\b");
-        if (!regex.test(normTranscript)) {
-          // Mark as mispronounced.
-          span.classList.add("incorrect");
-          mispronounced.push(word);
+      // Khi ghi âm dừng, so sánh nội dung đã đọc với nội dung mong đợi
+      compareTranscript();
+    }
+
+    // Hàm theo dõi năng lượng âm thanh để tự dừng ghi âm khi im lặng trên 6s
+    function monitorSilence() {
+      silenceStart = null;
+      silenceInterval = setInterval(() => {
+        if (!analyser) return;
+        const dataArray = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(dataArray);
+        // Tính giá trị trung bình bình phương (RMS)
+        let sumSquares = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const normalized = (dataArray[i] - 128) / 128;
+          sumSquares += normalized * normalized;
+        }
+        const rms = Math.sqrt(sumSquares / dataArray.length);
+
+        if (rms < SILENCE_THRESHOLD) {
+          if (!silenceStart) {
+            silenceStart = Date.now();
+          } else {
+            const silenceDuration = Date.now() - silenceStart;
+            if (silenceDuration > SILENCE_DURATION) {
+              // Nếu im lặng hơn 6 giây thì dừng ghi âm
+              console.log("Detected silence for " + silenceDuration + "ms. Stopping...");
+              stopRecording();
+            }
+          }
         } else {
-          span.classList.remove("incorrect");
+          // Có tiếng -> reset bộ đếm im lặng
+          silenceStart = null;
+        }
+      }, 200);
+    }
+
+    // Sự kiện click nút
+    startBtn.addEventListener("click", startRecording);
+    stopBtn.addEventListener("click", stopRecording);
+
+    /***********************************************************************
+     * So sánh nội dung được đọc (finalTranscript) với nội dung mong đợi
+     * của dòng được chọn. Mục đích: nếu đọc sai hoặc nhấn trọng âm không đúng,
+     * đánh dấu các từ đó màu đỏ và đưa ra hướng dẫn bằng SpeechSynthesis.
+     ***********************************************************************/
+    function compareTranscript() {
+      // Lấy dòng dữ liệu đã chọn
+      const expectedLine = parsedLines.find(line => line.id === Number(selectedLineId));
+      if (!expectedLine) return;
+
+      // Tạo chuỗi mong đợi bằng cách nối các từ với khoảng trắng, chuyển về chữ thường
+      const expectedText = expectedLine.words.map(w => w.text).join(" ").trim().toLowerCase();
+      // Xử lý finalTranscript: loại bỏ khoảng trắng thừa, dấu câu, chuyển về chữ thường
+      const recognizedText = finalTranscript.trim().toLowerCase().replace(/[.,?!]/g, "");
+      console.log("Expected:", expectedText);
+      console.log("Recognized:", recognizedText);
+
+      // Tách thành mảng từ
+      const expectedWords = expectedText.split(" ");
+      const recognizedWords = recognizedText.split(" ");
+
+      // So sánh từng từ (so sánh đơn giản theo vị trí)
+      const lineDiv = document.querySelector(`.line[data-id="${selectedLineId}"]`);
+      let errorsFound = false;
+      let feedbackMessages = [];
+
+      // Duyệt qua các từ hiển thị trong dòng
+      const wordSpans = lineDiv.querySelectorAll(".word");
+      expectedWords.forEach((word, index) => {
+        // Lấy span tương ứng
+        const span = wordSpans[index];
+        // Nếu không có từ tương ứng trong transcript hoặc khác nhau, đánh dấu lỗi
+        if (!recognizedWords[index] || recognizedWords[index] !== word) {
+          span.classList.add("error");
+          errorsFound = true;
+          // Nếu từ này cần nhấn trọng âm, gợi ý đặc biệt
+          if (expectedLine.words[index].stressed) {
+            feedbackMessages.push(`Remember to emphasize the word "${word}"`);
+          } else {
+            feedbackMessages.push(`Please pronounce the word "${word}" correctly`);
+          }
+        } else {
+          // Nếu đúng, đảm bảo xóa lớp error
+          span.classList.remove("error");
         }
       });
 
-      // Provide feedback.
-      if (mispronounced.length === 0) {
-        feedbackP.innerText = "Great job! You pronounced all the stressed words correctly.";
+      // Hiển thị kết quả
+      if (!errorsFound) {
+        resultEl.textContent = "Excellent! Your pronunciation is correct.";
       } else {
-        feedbackP.innerText = "Please re-read the following stressed words clearly: " + mispronounced.join(", ");
-        speakFeedback("Please re-read the following words: " + mispronounced.join(", "));
+        resultEl.innerHTML = feedbackMessages.join("<br/>");
+        // Dùng SpeechSynthesis để đọc hướng dẫn cho người dùng
+        speakFeedback(feedbackMessages.join(". "));
       }
     }
 
-    // Use the Speech Synthesis API to speak the feedback.
+    // Hàm sử dụng SpeechSynthesis để đưa ra hướng dẫn bằng âm thanh
     function speakFeedback(message) {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(message);
-        utterance.lang = 'en-US';
+        utterance.lang = "en-US";
         window.speechSynthesis.speak(utterance);
       }
     }
 
-    /**********************
-     * Recording Controls
-     **********************/
-    const startBtn = document.getElementById('start-recording');
-    const stopBtn = document.getElementById('stop-recording');
-
-    startBtn.addEventListener('click', () => {
-      // Ensure a sentence has been selected.
-      if (expectedText === "") {
-        alert("Please select a sentence first.");
-        return;
-      }
-      // Request microphone access by starting recognition.
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-      try {
-        recognition.start();
-      } catch (err) {
-        console.error("Recognition start error: ", err);
-      }
-    });
-
-    stopBtn.addEventListener('click', () => {
-      if (recognizing) {
-        recognition.stop();
-      }
-    });
-
-    /**********************
-     * Additional Suggestions:
-     **********************
-     * 1. Enhance the pronunciation evaluation by integrating a dedicated API (such as Google Cloud Speech-to-Text with pronunciation scoring)
-     *    so that you can assess not only word matching but also intonation, stress, and rhythm.
-     *
-     * 2. Add visual animations (for example, a waveform or volume meter) while recording.
-     *
-     * 3. Allow the user to replay their recording and compare it with a “model” pronunciation (perhaps generated via text-to-speech).
-     *
-     * 4. Save user progress or history (if deploying a backend) so that learners can track improvements over time.
-     *
-     * 5. Improve error handling and add loading spinners where appropriate.
-     *
-     * 6. Consider using modern frameworks (like React or Vue) if the application is going to grow further.
-     **********************/
+    /***********************************************************************
+     * Một vài gợi ý mở rộng:
+     * - Cải tiến thuật toán so sánh transcript: dùng diff hoặc forced alignment
+     *   để so sánh từng từ/syllable chính xác hơn.
+     * - Tích hợp thư viện phân tích pitch (ví dụ: pitchfinder) để kiểm tra mức
+     *   độ cao/âm lượng của các từ cần nhấn trọng âm.
+     * - Thêm hướng dẫn video hoặc hình ảnh động cho cách đặt trọng âm.
+     * - Lưu lại lịch sử luyện tập của người dùng (localStorage hoặc backend)
+     * - Hỗ trợ đa ngôn ngữ và giao diện người dùng tinh tế hơn.
+     ***********************************************************************/
   </script>
 </body>
 </html>
