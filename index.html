@@ -5,14 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pronunciation Practice</title>
   <style>
-    /* Tổng thể reset và font */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    /* Basic Reset & Styling */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-family: Arial, sans-serif;
       background: url('https://source.unsplash.com/1600x900/?education,learning') no-repeat center center fixed;
       background-size: cover;
       color: #fff;
@@ -26,15 +22,8 @@
       padding: 20px;
       border-radius: 8px;
     }
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      font-weight: bold;
-    }
-    /* Danh sách nội dung (các dòng) */
-    #content-list {
-      margin-bottom: 20px;
-    }
+    h1 { text-align: center; margin-bottom: 20px; font-weight: bold; }
+    #content-list { margin-bottom: 20px; }
     .line {
       padding: 10px;
       margin-bottom: 10px;
@@ -43,31 +32,12 @@
       cursor: pointer;
       transition: background 0.3s, border-color 0.3s;
     }
-    .line:hover {
-      background: rgba(255,255,255,0.1);
-    }
-    .line.selected {
-      background: rgba(255,255,255,0.2);
-      border-color: #FFD700;
-    }
-    /* Mỗi từ được bọc trong span */
-    .word {
-      font-weight: bold;
-      padding: 0 3px;
-      transition: transform 0.2s;
-    }
-    .word.stressed {
-      /* Những từ cần nhấn trọng âm có viền nổi bật */
-      border-bottom: 2px dashed #FFD700;
-    }
-    .word.error {
-      color: #FF6347;
-    }
-    /* Các nút điều khiển */
-    #controls {
-      text-align: center;
-      margin-bottom: 20px;
-    }
+    .line:hover { background: rgba(255,255,255,0.1); }
+    .line.selected { background: rgba(255,255,255,0.2); border-color: #FFD700; }
+    .word { font-weight: bold; padding: 0 3px; }
+    .word.stressed { border-bottom: 2px dashed #FFD700; }
+    .word.error { color: #FF6347; }
+    #controls { text-align: center; margin-bottom: 20px; }
     button {
       font-size: 1rem;
       padding: 10px 20px;
@@ -81,43 +51,29 @@
       box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
       transition: background 0.3s;
     }
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    button:hover:not(:disabled) {
-      background: #FFC107;
-    }
-    /* Kết quả hiển thị sau khi ghi âm */
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    button:hover:not(:disabled) { background: #FFC107; }
+    /* Evaluation result styling */
     #result {
-      font-size: 1.2rem;
+      font-size: 1.4rem;
       text-align: center;
-      padding: 10px;
+      padding: 15px;
+      border: 2px solid #FFD700;
+      border-radius: 5px;
+      margin-top: 20px;
     }
-    /* Responsive */
     @media (max-width: 600px) {
-      h1 {
-        font-size: 1.5rem;
-      }
-      button {
-        width: 100%;
-        margin-bottom: 10px;
-      }
-      #controls {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
+      h1 { font-size: 1.5rem; }
+      button { width: 100%; margin-bottom: 10px; }
+      #controls { display: flex; flex-direction: column; align-items: center; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Pronunciation Practice</h1>
-    <p>Chọn một dòng nội dung dưới đây trước khi bắt đầu ghi âm:</p>
-    <div id="content-list">
-      <!-- Các dòng nội dung sẽ được tạo bằng JS -->
-    </div>
+    <p>Please select a line before recording:</p>
+    <div id="content-list"></div>
     <div id="controls">
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop Recording</button>
@@ -127,8 +83,7 @@
 
   <script>
     /***********************************************************************
-     * Dữ liệu nguồn: 5 dòng nội dung. Trong đó, các từ có dấu ‘ là cần
-     * được nhấn trọng âm.
+     * Source data: 5 lines (words with a leading ‘ indicate stressed words)
      ***********************************************************************/
     const rawLines = [
       "We should ‘finish the ‘project for our ‘history ‘class",
@@ -138,13 +93,9 @@
       "I have ‘installed some ‘apps on my ‘phone"
     ];
 
-    // Biến lưu trữ nội dung đã được parse: mỗi dòng là một object chứa mảng từ và thông tin trọng âm
     const parsedLines = rawLines.map((line, index) => {
-      // Tách từ bằng khoảng trắng; giữ lại dấu câu nếu có.
       const words = line.split(' ').map(word => {
-        // Nếu từ có chứa ký tự ‘, thì đánh dấu stressed = true và loại bỏ ký tự đó ra khỏi hiển thị
         const stressed = word.includes("‘");
-        // Loại bỏ tất cả ký tự ‘ (có thể có ở đầu, giữa hay cuối từ)
         const cleanWord = word.replace(/‘/g, '');
         return { text: cleanWord, stressed };
       });
@@ -152,32 +103,25 @@
     });
 
     let selectedLineId = null;
-
-    // Render nội dung các dòng ra giao diện
     const contentListEl = document.getElementById("content-list");
+
     function renderContentList() {
       contentListEl.innerHTML = "";
       parsedLines.forEach(lineObj => {
         const lineDiv = document.createElement("div");
         lineDiv.classList.add("line");
         lineDiv.dataset.id = lineObj.id;
-        // Tạo HTML cho từng từ
         lineObj.words.forEach(wordObj => {
           const span = document.createElement("span");
           span.classList.add("word");
-          if (wordObj.stressed) {
-            span.classList.add("stressed");
-          }
+          if (wordObj.stressed) span.classList.add("stressed");
           span.textContent = wordObj.text + " ";
           lineDiv.appendChild(span);
         });
-        // Khi người dùng click vào dòng, đánh dấu dòng được chọn
         lineDiv.addEventListener("click", () => {
-          // Xóa lớp selected của các dòng khác
           document.querySelectorAll(".line").forEach(el => el.classList.remove("selected"));
           lineDiv.classList.add("selected");
           selectedLineId = lineObj.id;
-          // Xoá kết quả cũ nếu có
           document.getElementById("result").textContent = "";
         });
         contentListEl.appendChild(lineDiv);
@@ -186,40 +130,32 @@
     renderContentList();
 
     /***********************************************************************
-     * Các biến và hàm liên quan đến ghi âm, nhận dạng giọng nói và phân tích âm
+     * Audio & Speech Recognition Setup
      ***********************************************************************/
-    let recognition;          // SpeechRecognition instance
-    let finalTranscript = ""; // Nội dung nhận dạng được
-    let mediaStream = null;
-    let audioContext = null;
-    let analyser = null;
-    let silenceStart = null;
-    let silenceInterval = null;
-    const SILENCE_THRESHOLD = 0.02; // ngưỡng năng lượng (có thể điều chỉnh)
-    const SILENCE_DURATION = 6000;  // 6000 ms = 6 giây
+    let recognition, finalTranscript = "";
+    let mediaStream = null, audioContext = null, analyser = null, silenceStart = null, silenceInterval = null;
+    const SILENCE_THRESHOLD = 0.02;
+    const SILENCE_DURATION = 30000; // 30 seconds of silence
 
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const resultEl = document.getElementById("result");
 
-    // Khởi tạo SpeechRecognition (chú ý: dùng webkitSpeechRecognition cho Chrome)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Trình duyệt của bạn không hỗ trợ Speech Recognition API.");
+      alert("Your browser does not support the Speech Recognition API.");
     }
 
     function startRecording() {
-      // Kiểm tra đã chọn dòng chưa
       if (selectedLineId === null) {
-        alert("Vui lòng chọn một dòng nội dung trước khi ghi âm.");
+        alert("Please select a line before recording.");
         return;
       }
       finalTranscript = "";
-      resultEl.textContent = "Đang ghi âm...";
+      resultEl.textContent = "Recording...";
       startBtn.disabled = true;
       stopBtn.disabled = false;
 
-      // Yêu cầu quyền truy cập Micro với Web Audio API để phân tích im lặng
       navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
         mediaStream = stream;
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -227,13 +163,12 @@
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 2048;
         source.connect(analyser);
-        monitorSilence(); // Bắt đầu giám sát im lặng
+        monitorSilence();
       }).catch(err => {
-        console.error("Lỗi khi truy cập Micro:", err);
-        alert("Không thể truy cập micro.");
+        console.error("Error accessing microphone:", err);
+        alert("Unable to access the microphone.");
       });
 
-      // Khởi tạo và bắt đầu SpeechRecognition
       recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = false;
@@ -249,128 +184,99 @@
       };
 
       recognition.onerror = (event) => {
-        console.error("Speech recognition error", event.error);
+        console.error("Speech recognition error:", event.error);
       };
 
       recognition.onend = () => {
-        // Khi dừng ghi âm tự động hay bằng nút
         stopRecording();
       };
     }
 
     function stopRecording() {
-      if (recognition) {
-        recognition.stop();
-      }
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-      }
-      if (audioContext) {
-        audioContext.close();
-      }
+      if (recognition) recognition.stop();
+      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+      if (audioContext) audioContext.close();
       clearInterval(silenceInterval);
       startBtn.disabled = false;
       stopBtn.disabled = true;
-
-      // Khi ghi âm dừng, so sánh nội dung đã đọc với nội dung mong đợi
-      compareTranscript();
+      evaluatePronunciation();
     }
 
-    // Hàm theo dõi năng lượng âm thanh để tự dừng ghi âm khi im lặng trên 6s
+    // Monitor the audio energy and auto-stop if silence > 30s
     function monitorSilence() {
       silenceStart = null;
       silenceInterval = setInterval(() => {
         if (!analyser) return;
         const dataArray = new Uint8Array(analyser.fftSize);
         analyser.getByteTimeDomainData(dataArray);
-        // Tính giá trị trung bình bình phương (RMS)
         let sumSquares = 0;
         for (let i = 0; i < dataArray.length; i++) {
           const normalized = (dataArray[i] - 128) / 128;
           sumSquares += normalized * normalized;
         }
         const rms = Math.sqrt(sumSquares / dataArray.length);
-
         if (rms < SILENCE_THRESHOLD) {
           if (!silenceStart) {
             silenceStart = Date.now();
-          } else {
-            const silenceDuration = Date.now() - silenceStart;
-            if (silenceDuration > SILENCE_DURATION) {
-              // Nếu im lặng hơn 6 giây thì dừng ghi âm
-              console.log("Detected silence for " + silenceDuration + "ms. Stopping...");
-              stopRecording();
-            }
+          } else if (Date.now() - silenceStart > SILENCE_DURATION) {
+            console.log("Silence detected for over 30 seconds. Stopping recording...");
+            stopRecording();
           }
         } else {
-          // Có tiếng -> reset bộ đếm im lặng
           silenceStart = null;
         }
       }, 200);
     }
 
-    // Sự kiện click nút
     startBtn.addEventListener("click", startRecording);
     stopBtn.addEventListener("click", stopRecording);
 
     /***********************************************************************
-     * So sánh nội dung được đọc (finalTranscript) với nội dung mong đợi
-     * của dòng được chọn. Mục đích: nếu đọc sai hoặc nhấn trọng âm không đúng,
-     * đánh dấu các từ đó màu đỏ và đưa ra hướng dẫn bằng SpeechSynthesis.
+     * Evaluate pronunciation:
+     * - Compare expected vs recognized transcript.
+     * - Group identical error messages.
+     * - Highlight errors by marking words in red.
      ***********************************************************************/
-    function compareTranscript() {
-      // Lấy dòng dữ liệu đã chọn
+    function evaluatePronunciation() {
       const expectedLine = parsedLines.find(line => line.id === Number(selectedLineId));
       if (!expectedLine) return;
-
-      // Tạo chuỗi mong đợi bằng cách nối các từ với khoảng trắng, chuyển về chữ thường
+      
       const expectedText = expectedLine.words.map(w => w.text).join(" ").trim().toLowerCase();
-      // Xử lý finalTranscript: loại bỏ khoảng trắng thừa, dấu câu, chuyển về chữ thường
       const recognizedText = finalTranscript.trim().toLowerCase().replace(/[.,?!]/g, "");
       console.log("Expected:", expectedText);
       console.log("Recognized:", recognizedText);
 
-      // Tách thành mảng từ
       const expectedWords = expectedText.split(" ");
       const recognizedWords = recognizedText.split(" ");
-
-      // So sánh từng từ (so sánh đơn giản theo vị trí)
       const lineDiv = document.querySelector(`.line[data-id="${selectedLineId}"]`);
       let errorsFound = false;
-      let feedbackMessages = [];
+      const errorMessages = {};
 
-      // Duyệt qua các từ hiển thị trong dòng
       const wordSpans = lineDiv.querySelectorAll(".word");
       expectedWords.forEach((word, index) => {
-        // Lấy span tương ứng
         const span = wordSpans[index];
-        // Nếu không có từ tương ứng trong transcript hoặc khác nhau, đánh dấu lỗi
         if (!recognizedWords[index] || recognizedWords[index] !== word) {
           span.classList.add("error");
           errorsFound = true;
-          // Nếu từ này cần nhấn trọng âm, gợi ý đặc biệt
-          if (expectedLine.words[index].stressed) {
-            feedbackMessages.push(`Remember to emphasize the word "${word}"`);
-          } else {
-            feedbackMessages.push(`Please pronounce the word "${word}" correctly`);
-          }
+          let message = expectedLine.words[index].stressed ?
+                        `Emphasize "${word}"` :
+                        `Pronounce "${word}" correctly`;
+          errorMessages[message] = true;
         } else {
-          // Nếu đúng, đảm bảo xóa lớp error
           span.classList.remove("error");
         }
       });
 
-      // Hiển thị kết quả
       if (!errorsFound) {
-        resultEl.textContent = "Excellent! Your pronunciation is correct.";
+        resultEl.innerHTML = "<span style='color:#00FF00;'>Excellent! Your pronunciation is correct.</span>";
       } else {
-        resultEl.innerHTML = feedbackMessages.join("<br/>");
-        // Dùng SpeechSynthesis để đọc hướng dẫn cho người dùng
-        speakFeedback(feedbackMessages.join(". "));
+        const messages = Object.keys(errorMessages).join("; ");
+        resultEl.innerHTML = `<span style='color:#FF6347;'>Issues: ${messages}</span>`;
+        speakFeedback(messages);
       }
     }
 
-    // Hàm sử dụng SpeechSynthesis để đưa ra hướng dẫn bằng âm thanh
+    // Provide audio feedback using SpeechSynthesis
     function speakFeedback(message) {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(message);
@@ -378,17 +284,6 @@
         window.speechSynthesis.speak(utterance);
       }
     }
-
-    /***********************************************************************
-     * Một vài gợi ý mở rộng:
-     * - Cải tiến thuật toán so sánh transcript: dùng diff hoặc forced alignment
-     *   để so sánh từng từ/syllable chính xác hơn.
-     * - Tích hợp thư viện phân tích pitch (ví dụ: pitchfinder) để kiểm tra mức
-     *   độ cao/âm lượng của các từ cần nhấn trọng âm.
-     * - Thêm hướng dẫn video hoặc hình ảnh động cho cách đặt trọng âm.
-     * - Lưu lại lịch sử luyện tập của người dùng (localStorage hoặc backend)
-     * - Hỗ trợ đa ngôn ngữ và giao diện người dùng tinh tế hơn.
-     ***********************************************************************/
   </script>
 </body>
 </html>
