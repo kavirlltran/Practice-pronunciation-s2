@@ -23,6 +23,7 @@
       border-radius: 8px;
     }
     h1 { text-align: center; margin-bottom: 20px; font-weight: bold; }
+    /* Khối chứa nội dung chính (5 dòng) */
     #content-list { margin-bottom: 20px; }
     .line {
       padding: 10px;
@@ -37,6 +38,7 @@
     .word { font-weight: bold; padding: 0 3px; }
     .word.stressed { border-bottom: 2px dashed #FFD700; }
     .word.error { color: #FF6347; }
+    /* Nút điều khiển */
     #controls { text-align: center; margin-bottom: 20px; }
     button {
       font-size: 1rem;
@@ -53,7 +55,7 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     button:hover:not(:disabled) { background: #FFC107; }
-    /* Evaluation Result Styling */
+    /* Kết quả đánh giá hiển thị feedback */
     #result {
       font-size: 1.4rem;
       text-align: center;
@@ -62,13 +64,9 @@
       border-radius: 5px;
       margin-top: 20px;
     }
-    /* Các lớp định dạng cho feedback */
-    .msg-prefix {
-      color: #FF6347; /* Red-orange */
-    }
-    .error-word {
-      color: #FFD700; /* Gold */
-    }
+    /* Định dạng feedback theo 2 màu */
+    .msg-prefix { color: #FF6347; }  /* Red-orange */
+    .error-word { color: #FFD700; }   /* Gold */
     @media (max-width: 600px) {
       h1 { font-size: 1.5rem; }
       button { width: 100%; margin-bottom: 10px; }
@@ -80,11 +78,13 @@
   <div class="container">
     <h1>Pronunciation Practice</h1>
     <p>Please select a line before recording:</p>
+    <!-- Phần nội dung chính với 5 dòng -->
     <div id="content-list"></div>
     <div id="controls">
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop Recording</button>
     </div>
+    <!-- Kết quả đánh giá (chỉ xuất hiện khi có từ phát âm lỗi) -->
     <div id="result"></div>
   </div>
 
@@ -100,7 +100,7 @@
       "I have ‘installed some ‘apps on my ‘phone"
     ];
 
-    // Phân tách các dòng thành các từ, đánh dấu từ cần nhấn trọng âm (stressed)
+    // Tách dòng thành từ, đánh dấu từ cần nhấn (stressed)
     const parsedLines = rawLines.map((line, index) => {
       const words = line.split(' ').map(word => {
         const stressed = word.includes("‘");
@@ -114,4 +114,182 @@
     const contentListEl = document.getElementById("content-list");
 
     function renderContentList() {
-     
+      contentListEl.innerHTML = "";
+      parsedLines.forEach(lineObj => {
+        const lineDiv = document.createElement("div");
+        lineDiv.classList.add("line");
+        lineDiv.dataset.id = lineObj.id;
+        lineObj.words.forEach(wordObj => {
+          const span = document.createElement("span");
+          span.classList.add("word");
+          if (wordObj.stressed) span.classList.add("stressed");
+          span.textContent = wordObj.text + " ";
+          lineDiv.appendChild(span);
+        });
+        lineDiv.addEventListener("click", () => {
+          document.querySelectorAll(".line").forEach(el => el.classList.remove("selected"));
+          lineDiv.classList.add("selected");
+          selectedLineId = lineObj.id;
+          // Không xóa nội dung 5 dòng khi chọn, chỉ xóa feedback (nếu có)
+          document.getElementById("result").textContent = "";
+        });
+        contentListEl.appendChild(lineDiv);
+      });
+    }
+    renderContentList();
+
+    /***********************************************************************
+     * Audio & Speech Recognition Setup
+     ***********************************************************************/
+    let recognition, finalTranscript = "";
+    let mediaStream = null;
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const resultEl = document.getElementById("result");
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Your browser does not support the Speech Recognition API.");
+    }
+
+    // Yêu cầu quyền truy cập micro ngay khi tải trang
+    let preGrantedStream = null;
+    window.addEventListener("load", () => {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          preGrantedStream = stream;
+          console.log("Microphone access granted.");
+        })
+        .catch(err => {
+          console.error("Microphone access denied:", err);
+          alert("Microphone access is required for recording.");
+        });
+    });
+
+    function startRecording() {
+      if (selectedLineId === null) {
+        alert("Please select a line before recording.");
+        return;
+      }
+      finalTranscript = "";
+      resultEl.textContent = "Recording...";
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+
+      // Sử dụng stream đã được cấp phép nếu có
+      if (preGrantedStream) {
+        mediaStream = preGrantedStream;
+      } else {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => { mediaStream = stream; })
+          .catch(err => {
+            console.error("Error accessing microphone:", err);
+            alert("Unable to access the microphone.");
+          });
+      }
+
+      // Thiết lập Speech Recognition
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + " ";
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+      };
+
+      recognition.onend = () => {
+        // Ghi âm dừng khi người dùng bấm nút Stop Recording
+      };
+    }
+
+    function stopRecording() {
+      if (recognition) recognition.stop();
+      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      evaluatePronunciation();
+    }
+
+    startBtn.addEventListener("click", startRecording);
+    stopBtn.addEventListener("click", stopRecording);
+
+    /***********************************************************************
+     * Evaluate Pronunciation:
+     * - Chỉ góp ý với các từ phát âm lỗi (nhóm lỗi giống nhau)
+     * - Feedback hiển thị theo 2 màu:
+     *      • Prefix (ví dụ: "Issue: Pronounce") theo màu cam đỏ.
+     *      • Từ lỗi (ví dụ: "i") theo màu vàng.
+     * - Nếu không có lỗi, không hiển thị feedback nào.
+     ***********************************************************************/
+    function evaluatePronunciation() {
+      const expectedLine = parsedLines.find(line => line.id === Number(selectedLineId));
+      if (!expectedLine) return;
+      
+      const expectedText = expectedLine.words.map(w => w.text).join(" ").trim().toLowerCase();
+      const recognizedText = finalTranscript.trim().toLowerCase().replace(/[.,?!]/g, "");
+      console.log("Expected:", expectedText);
+      console.log("Recognized:", recognizedText);
+
+      const expectedWords = expectedText.split(" ");
+      const recognizedWords = recognizedText.split(" ");
+      const lineDiv = document.querySelector(`.line[data-id="${selectedLineId}"]`);
+
+      // Chỉ góp ý với các từ lỗi
+      let errorMessages = []; // Mảng chứa các object { type, word }
+      const wordSpans = lineDiv.querySelectorAll(".word");
+      expectedWords.forEach((word, index) => {
+        if (!recognizedWords[index] || recognizedWords[index] !== word) {
+          let type = expectedLine.words[index].stressed ? "Emphasize" : "Pronounce";
+          // Nếu lỗi của từ này chưa có, thêm mới
+          if (!errorMessages.some(err => err.type === type && err.word === word)) {
+            errorMessages.push({ type, word });
+          }
+          wordSpans[index].classList.add("error");
+        } else {
+          wordSpans[index].classList.remove("error");
+        }
+      });
+
+      // Chỉ hiển thị feedback nếu có từ phát âm lỗi
+      if (errorMessages.length > 0) {
+        let errorHTML = "";
+        errorMessages.forEach(err => {
+          errorHTML += `<div class="error-msg">
+                          <span class="msg-prefix">Issue: ${err.type} </span>
+                          <span class="error-word">"${err.word}"</span>
+                        </div>`;
+        });
+        resultEl.innerHTML = errorHTML;
+        // Xây dựng thông điệp dạng text cho SpeechSynthesis (loại bỏ HTML)
+        const speechMessage = errorMessages
+          .map(e => `Issue: ${e.type} "${e.word}"`)
+          .join(". ");
+        speakFeedback(speechMessage);
+      } else {
+        // Nếu không có lỗi, không hiển thị feedback nào
+        resultEl.innerHTML = "";
+      }
+    }
+
+    // Cung cấp phản hồi bằng âm thanh với SpeechSynthesis (chỉ với từ lỗi)
+    function speakFeedback(message) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = "en-US";
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  </script>
+</body>
+</html>
